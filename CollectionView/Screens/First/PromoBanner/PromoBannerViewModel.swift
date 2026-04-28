@@ -1,0 +1,28 @@
+//
+//  PromoBannerViewModel.swift
+//  CollectionView
+//
+//  Created by Дмитрий on 28.04.2026.
+//
+
+import UIKit
+
+struct PromoBannerViewModel: Viewable, Identifiable, Sendable {
+	
+	let id: String
+	let title: String
+	let subtitle: String
+	let backgroundColor: UIColor
+	
+	var preferredSize: CGSize {
+		CGSize(width: 260, height: 160)
+	}
+	
+	func makeView() -> PromoBannerView {
+		PromoBannerView(self, environment: .plain)
+	}
+	
+	func makeView(environment: ViewEnvironment) -> PromoBannerView {
+		PromoBannerView(self, environment: environment)
+	}
+}
