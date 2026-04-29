@@ -165,7 +165,76 @@ final class FirstViewController: UIViewController {
 				).erased()
 			}
 			
-			// Модуль 3: "Доставка продуктов" + товарные баннеры
+			// Модуль 3: "Рекомендуем" — сетка 2 колонки
+			CollectionSection(
+				id: "recs_module",
+				layout: .custom { environment in
+					let spacing = LayoutConstants.interItemSpacing
+					let containerWidth = environment.container.effectiveContentSize.width
+					// Ширина карточки: половина контейнера минус половина отступа между ними
+					let cardWidth = (containerWidth - spacing) / 2
+					let cardHeight = cardWidth * 1.5
+
+					// Каждая карточка — половина ширины ряда
+					let itemSize = NSCollectionLayoutSize(
+						widthDimension: .fractionalWidth(0.5),
+						heightDimension: .fractionalHeight(1.0)
+					)
+					let item = NSCollectionLayoutItem(layoutSize: itemSize)
+
+					// Горизонтальный ряд из 2 карточек
+					let groupSize = NSCollectionLayoutSize(
+						widthDimension: .fractionalWidth(1.0),
+						heightDimension: .absolute(cardHeight)
+					)
+					let group = NSCollectionLayoutGroup.horizontal(
+						layoutSize: groupSize,
+						subitems: [item, item]
+					)
+					group.interItemSpacing = .fixed(spacing)
+
+					let section = NSCollectionLayoutSection(group: group)
+					section.interGroupSpacing = spacing
+					section.contentInsets = NSDirectionalEdgeInsets(
+						top: 0,
+						leading: inset,
+						bottom: inset,
+						trailing: inset
+					)
+
+					let headerBoundary = NSCollectionLayoutBoundarySupplementaryItem(
+						layoutSize: NSCollectionLayoutSize(
+							widthDimension: .fractionalWidth(1.0),
+							heightDimension: .absolute(44)
+						),
+						elementKind: UICollectionView.elementKindSectionHeader,
+						alignment: .top
+					)
+					section.boundarySupplementaryItems = [headerBoundary]
+
+					return section
+				},
+				header: CollectionItem(
+					id: "header_recs",
+					model: SectionHeaderViewModel(id: "header_recs", title: "Рекомендуем")
+				).erased(),
+				decorations: {
+					Self.moduleDecoration()
+				}
+			) {
+				CollectionItem(id: "rec_1", model: PromoCardViewModel(id: "rec_1", title: "Смартфон Galaxy", subtitle: "От 29 990 ₽", backgroundColor: .systemIndigo, size: .regular)).erased()
+				CollectionItem(id: "rec_2", model: PromoCardViewModel(id: "rec_2", title: "Наушники AirPods", subtitle: "Беспроводные", backgroundColor: .systemTeal, size: .regular)).erased()
+				CollectionItem(id: "rec_3", model: PromoCardViewModel(id: "rec_3", title: "Умные часы", subtitle: "Apple Watch S9", backgroundColor: .systemOrange, size: .regular)).erased()
+				CollectionItem(id: "rec_4", model: PromoCardViewModel(id: "rec_4", title: "Ноутбук MacBook", subtitle: "Air M2", backgroundColor: .systemPink, size: .regular)).erased()
+				CollectionItem(id: "rec_5", model: PromoCardViewModel(id: "rec_5", title: "Планшет iPad", subtitle: "10-го поколения", backgroundColor: .systemGreen, size: .regular)).erased()
+				CollectionItem(id: "rec_6", model: PromoCardViewModel(id: "rec_6", title: "Фотоаппарат", subtitle: "Sony A7 IV", backgroundColor: .systemRed, size: .regular)).erased()
+				CollectionItem(id: "rec_7", model: PromoCardViewModel(id: "rec_7", title: "Игровая консоль", subtitle: "PlayStation 5", backgroundColor: .systemPurple, size: .regular)).erased()
+				CollectionItem(id: "rec_8", model: PromoCardViewModel(id: "rec_8", title: "Робот-пылесос", subtitle: "Xiaomi S10+", backgroundColor: .systemYellow, size: .regular)).erased()
+				CollectionItem(id: "rec_9", model: PromoCardViewModel(id: "rec_9", title: "Телевизор QLED", subtitle: "Samsung 55\"", backgroundColor: .systemCyan, size: .regular)).erased()
+				CollectionItem(id: "rec_10", model: PromoCardViewModel(id: "rec_10", title: "Колонка HomePod", subtitle: "Apple", backgroundColor: .systemBrown, size: .regular)).erased()
+			}
+
+			// Модуль 4: "Доставка продуктов" + товарные баннеры
 			CollectionSection(
 				id: "delivery_module",
 				layout: .custom { environment in
