@@ -15,7 +15,6 @@ final class SectionHeaderView: UIView, ModelableView {
 		didSet { updateUI() }
 	}
 	var updatable: Updatable?
-	var viewEnvironment: ViewEnvironment
 	
 	private let titleLabel: UILabel = {
 		let label = UILabel()
@@ -24,9 +23,8 @@ final class SectionHeaderView: UIView, ModelableView {
 		return label
 	}()
 	
-	required init(_ model: SectionHeaderViewModel, environment: ViewEnvironment) {
+	required init(_ model: SectionHeaderViewModel) {
 		self.model = model
-		self.viewEnvironment = environment
 		super.init(frame: .zero)
 		setupUI()
 		updateUI()

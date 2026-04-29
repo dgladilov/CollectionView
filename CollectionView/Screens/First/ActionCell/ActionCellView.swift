@@ -15,7 +15,6 @@ final class ActionCellView: UIView, ModelableView {
 		didSet { updateUI() }
 	}
 	var updatable: Updatable?
-	var viewEnvironment: ViewEnvironment
 	
 	private let iconContainer: UIView = {
 		let view = UIView()
@@ -44,6 +43,7 @@ final class ActionCellView: UIView, ModelableView {
 		let label = UILabel()
 		label.font = .systemFont(ofSize: 13, weight: .regular)
 		label.textColor = .secondaryLabel
+		label.numberOfLines = 0
 		label.translatesAutoresizingMaskIntoConstraints = false
 		return label
 	}()
@@ -65,9 +65,8 @@ final class ActionCellView: UIView, ModelableView {
 		return imageView
 	}()
 	
-	required init(_ model: ActionCellViewModel, environment: ViewEnvironment) {
+	required init(_ model: ActionCellViewModel) {
 		self.model = model
-		self.viewEnvironment = environment
 		super.init(frame: .zero)
 		setupUI()
 		updateUI()
@@ -98,9 +97,10 @@ final class ActionCellView: UIView, ModelableView {
 			iconImageView.widthAnchor.constraint(equalToConstant: 20),
 			iconImageView.heightAnchor.constraint(equalToConstant: 20),
 			
+			textStack.topAnchor.constraint(equalTo: topAnchor, constant: 12),
 			textStack.leadingAnchor.constraint(equalTo: iconContainer.trailingAnchor, constant: 12),
-			textStack.centerYAnchor.constraint(equalTo: centerYAnchor),
 			textStack.trailingAnchor.constraint(equalTo: chevron.leadingAnchor, constant: -8),
+			textStack.bottomAnchor.constraint(equalTo: bottomAnchor, constant: -12),
 			
 			chevron.trailingAnchor.constraint(equalTo: trailingAnchor, constant: -16),
 			chevron.centerYAnchor.constraint(equalTo: centerYAnchor),

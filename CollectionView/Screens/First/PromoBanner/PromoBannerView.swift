@@ -15,7 +15,6 @@ final class PromoBannerView: UIView, ModelableView {
 		didSet { updateUI() }
 	}
 	var updatable: Updatable?
-	var viewEnvironment: ViewEnvironment
 	
 	private let titleLabel: UILabel = {
 		let label = UILabel()
@@ -46,9 +45,8 @@ final class PromoBannerView: UIView, ModelableView {
 		return button
 	}()
 	
-	required init(_ model: PromoBannerViewModel, environment: ViewEnvironment) {
+	required init(_ model: PromoBannerViewModel) {
 		self.model = model
-		self.viewEnvironment = environment
 		super.init(frame: .zero)
 		setupUI()
 		updateUI()

@@ -102,11 +102,7 @@ extension CollectionSection {
 		layout: CollectionLayout,
 		@ItemBuilder items: () -> [AnyCollectionItem]
 	) {
-		self.id = id
-		self.layout = layout
-		self.items = items()
-		self.decorations = []
-		self.header = nil
+		self.init(id: id, layout: layout, items: items())
 	}
 	
 	init(
@@ -115,25 +111,41 @@ extension CollectionSection {
 		@DecorationBuilder decorations: () -> [CollectionDecoration],
 		@ItemBuilder items: () -> [AnyCollectionItem]
 	) {
-		self.id = id
-		self.layout = layout
-		self.items = items()
-		self.decorations = decorations()
-		self.header = nil
+		self.init(id: id, layout: layout, items: items(), decorations: decorations())
 	}
 	
 	init(
 		id: String,
 		layout: CollectionLayout,
-		header: AnyCollectionItem,
+		header: AnyCollectionItem? = nil,
+		footer: AnyCollectionItem? = nil,
 		@DecorationBuilder decorations: () -> [CollectionDecoration],
 		@ItemBuilder items: () -> [AnyCollectionItem]
 	) {
-		self.id = id
-		self.layout = layout
-		self.items = items()
-		self.decorations = decorations()
-		self.header = header
+		self.init(
+			id: id,
+			layout: layout,
+			items: items(),
+			decorations: decorations(),
+			header: header,
+			footer: footer
+		)
+	}
+	
+	init(
+		id: String,
+		layout: CollectionLayout,
+		header: AnyCollectionItem? = nil,
+		footer: AnyCollectionItem? = nil,
+		@ItemBuilder items: () -> [AnyCollectionItem]
+	) {
+		self.init(
+			id: id,
+			layout: layout,
+			items: items(),
+			header: header,
+			footer: footer
+		)
 	}
 }
 
@@ -142,6 +154,7 @@ extension CollectionSection {
 @MainActor final class CollectionViewBuilder {
 	
 	private var sections: [CollectionSection] = []
+	private var configuration: UICollectionViewCompositionalLayoutConfiguration = .default
 	
 	// MARK: - Chaining API
 	
@@ -160,15 +173,24 @@ extension CollectionSection {
 		return self
 	}
 	
+	@discardableResult
+	func configuration(_ configuration: UICollectionViewCompositionalLayoutConfiguration) -> CollectionViewBuilder {
+		self.configuration = configuration
+		return self
+	}
+	
 	// MARK: - Build
 	
 	func build() -> CollectionViewContainer {
-		CollectionViewContainer(sections: sections)
+		CollectionViewContainer(sections: sections, configuration: configuration)
 	}
 	
 	// MARK: - Result Builder API
 	
-	static func build(@SectionBuilder content: () -> [CollectionSection]) -> CollectionViewContainer {
-		CollectionViewContainer(sections: content())
+	static func make(
+		configuration: UICollectionViewCompositionalLayoutConfiguration = .default,
+		@SectionBuilder content: () -> [CollectionSection]
+	) -> CollectionViewContainer {
+		CollectionViewContainer(sections: content(), configuration: configuration)
 	}
 }

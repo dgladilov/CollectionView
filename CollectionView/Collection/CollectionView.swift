@@ -12,17 +12,21 @@ final class CollectionViewContainer: UICollectionView {
 	// MARK: - Private
 	
 	private var sections: [CollectionSection]
-	private var diffableDataSource: UICollectionViewDiffableDataSource<String, AnyCollectionItem>!
+	private var layoutConfiguration: UICollectionViewCompositionalLayoutConfiguration
+	private lazy var diffableDataSource: UICollectionViewDiffableDataSource<String, AnyCollectionItem> = makeDataSource()
 	private let delegateHandler = DelegateHandler()
 	private var displayedIndexPaths = Set<IndexPath>()
 	
 	// MARK: - Init
 	
-	init(sections: [CollectionSection]) {
+	init(
+		sections: [CollectionSection],
+		configuration: UICollectionViewCompositionalLayoutConfiguration = .default
+	) {
 		self.sections = sections
+		self.layoutConfiguration = configuration
 		
-		let placeholderLayout = UICollectionViewFlowLayout()
-		super.init(frame: .zero, collectionViewLayout: placeholderLayout)
+		super.init(frame: .zero, collectionViewLayout: UICollectionViewFlowLayout())
 		
 		let layout = makeLayout()
 		Self.registerDecorations(from: sections, in: layout)
@@ -32,7 +36,8 @@ final class CollectionViewContainer: UICollectionView {
 		delegate = delegateHandler
 		backgroundColor = .systemBackground
 		
-		configureDataSource()
+		// Обращение к lazy var инициализирует data source с реальным self
+		configureSupplementaryViewProvider()
 		applySnapshot(animated: false)
 	}
 	
@@ -51,14 +56,52 @@ final class CollectionViewContainer: UICollectionView {
 		sections[index] = CollectionSection(
 			id: section.id,
 			layout: section.layout,
-			items: items
+			items: items,
+			decorations: section.decorations,
+			header: section.header,
+			footer: section.footer
 		)
 		applySnapshot(animated: animated)
 	}
 	
+	/// Добавляет секцию в конец
+	func appendSection(_ section: CollectionSection, animated: Bool = true) {
+		sections.append(section)
+		rebuildLayout()
+		applySnapshot(animated: animated)
+	}
+	
+	/// Вставляет секцию перед указанной
+	func insertSection(_ section: CollectionSection, before targetId: String, animated: Bool = true) {
+		let index = sections.firstIndex(where: { $0.id == targetId }) ?? 0
+		sections.insert(section, at: index)
+		rebuildLayout()
+		applySnapshot(animated: animated)
+	}
+	
+	/// Вставляет секцию после указанной
+	func insertSection(_ section: CollectionSection, after targetId: String, animated: Bool = true) {
+		let index = sections.firstIndex(where: { $0.id == targetId }).map { $0 + 1 } ?? sections.count
+		sections.insert(section, at: index)
+		rebuildLayout()
+		applySnapshot(animated: animated)
+	}
+	
+	/// Удаляет секцию по идентификатору
+	func removeSection(id: String, animated: Bool = true) {
+		sections.removeAll { $0.id == id }
+		rebuildLayout()
+		applySnapshot(animated: animated)
+	}
+	
 	/// Полностью перезагружает все секции
-	func reloadAll(sections: [CollectionSection], animated: Bool = true) {
+	func reloadAll(
+		sections: [CollectionSection],
+		configuration: UICollectionViewCompositionalLayoutConfiguration? = nil,
+		animated: Bool = true
+	) {
 		self.sections = sections
+		if let configuration { self.layoutConfiguration = configuration }
 		displayedIndexPaths.removeAll()
 		
 		let layout = makeLayout()
@@ -69,6 +112,13 @@ final class CollectionViewContainer: UICollectionView {
 	}
 	
 	// MARK: - Private Methods
+
+	/// Пересоздаёт layout и регистрирует декорации после структурного изменения секций
+	private func rebuildLayout() {
+		let layout = makeLayout()
+		Self.registerDecorations(from: sections, in: layout)
+		setCollectionViewLayout(layout, animated: false)
+	}
 	
 	fileprivate func notifyWillDisplayIfNeeded(at indexPath: IndexPath) {
 		guard !displayedIndexPaths.contains(indexPath),
@@ -81,32 +131,29 @@ final class CollectionViewContainer: UICollectionView {
 	}
 	
 	private func makeLayout() -> UICollectionViewCompositionalLayout {
-		let layout = UICollectionViewCompositionalLayout { [weak self] sectionIndex, environment in
-			guard let self, sectionIndex < self.sections.count else { return nil }
-			let section = self.sections[sectionIndex]
-			let layoutSection = section.layout.makeLayoutSection(environment: environment)
-			
-			if !section.decorations.isEmpty {
-				layoutSection.decorationItems = section.decorations.map { $0.makeDecorationItem() }
-			}
-			
-			// visibleItemsInvalidationHandler покрывает ортогональный скролл,
-			// где willDisplay делегата не вызывается
-			layoutSection.visibleItemsInvalidationHandler = { [weak self] visibleItems, offset, environment in
-				guard let self else { return }
-				for visibleItem in visibleItems where visibleItem.representedElementCategory == .cell {
-					self.notifyWillDisplayIfNeeded(at: visibleItem.indexPath)
+		let layout = UICollectionViewCompositionalLayout(
+			sectionProvider: { [weak self] sectionIndex, environment in
+				guard let self, sectionIndex < self.sections.count else { return nil }
+				let section = self.sections[sectionIndex]
+				let layoutSection = section.layout.makeLayoutSection(environment: environment)
+				
+				if !section.decorations.isEmpty {
+					layoutSection.decorationItems = section.decorations.map { $0.makeDecorationItem() }
 				}
-			}
-			
-			return layoutSection
-		}
-		
-		// TODO: - Вынести отдельно
-//		let configudation = UICollectionViewCompositionalLayoutConfiguration()
-//		configudation.interSectionSpacing = 8
-//		layout.configuration = configudation
-		
+				
+				// visibleItemsInvalidationHandler покрывает ортогональный скролл,
+				// где willDisplay делегата не вызывается
+				layoutSection.visibleItemsInvalidationHandler = { [weak self] visibleItems, offset, environment in
+					guard let self else { return }
+					for visibleItem in visibleItems where visibleItem.representedElementCategory == .cell {
+						self.notifyWillDisplayIfNeeded(at: visibleItem.indexPath)
+					}
+				}
+				
+				return layoutSection
+			},
+			configuration: layoutConfiguration
+		)
 		return layout
 	}
 	
@@ -123,19 +170,12 @@ final class CollectionViewContainer: UICollectionView {
 		}
 	}
 	
-	private func configureDataSource() {
+	private func makeDataSource() -> UICollectionViewDiffableDataSource<String, AnyCollectionItem> {
 		let cellRegistration = CellRegistration<UICollectionViewCell, AnyCollectionItem> {
-			[weak self] cell, indexPath, item in
+			cell, indexPath, item in
 			cell.contentView.subviews.forEach { $0.removeFromSuperview() }
 			
-			let environment: ViewEnvironment
-			if let self, indexPath.section < self.sections.count {
-				environment = self.sections[indexPath.section].layout.viewEnvironment
-			} else {
-				environment = .undefined
-			}
-			
-			let view = item.makeView(environment: environment)
+			let view = item.makeView()
 			view.translatesAutoresizingMaskIntoConstraints = false
 			cell.contentView.addSubview(view)
 			
@@ -147,7 +187,7 @@ final class CollectionViewContainer: UICollectionView {
 			])
 		}
 		
-		diffableDataSource = UICollectionViewDiffableDataSource<String, AnyCollectionItem>(
+		return UICollectionViewDiffableDataSource<String, AnyCollectionItem>(
 			collectionView: self
 		) { collectionView, indexPath, item in
 			collectionView.dequeueConfiguredReusableCell(
@@ -156,37 +196,46 @@ final class CollectionViewContainer: UICollectionView {
 				item: item
 			)
 		}
-		
-		configureSupplementaryViewProvider()
 	}
 	
 	private func configureSupplementaryViewProvider() {
-		let headerRegistration = UICollectionView.SupplementaryRegistration<UICollectionReusableView>(
-			elementKind: UICollectionView.elementKindSectionHeader
-		) { [weak self] supplementaryView, elementKind, indexPath in
-			guard let self, indexPath.section < self.sections.count,
-				  let headerItem = self.sections[indexPath.section].header else { return }
-			
+		let headerRegistration = makeSupplementaryRegistration(elementKind: UICollectionView.elementKindSectionHeader) {
+			self.sections[safe: $0.section]?.header
+		}
+		let footerRegistration = makeSupplementaryRegistration(elementKind: UICollectionView.elementKindSectionFooter) {
+			self.sections[safe: $0.section]?.footer
+		}
+		
+		diffableDataSource.supplementaryViewProvider = { collectionView, elementKind, indexPath in
+			switch elementKind {
+			case UICollectionView.elementKindSectionHeader:
+				return collectionView.dequeueConfiguredReusableSupplementary(using: headerRegistration, for: indexPath)
+			case UICollectionView.elementKindSectionFooter:
+				return collectionView.dequeueConfiguredReusableSupplementary(using: footerRegistration, for: indexPath)
+			default:
+				return nil
+			}
+		}
+	}
+	
+	private func makeSupplementaryRegistration(
+		elementKind: String,
+		itemProvider: @escaping (IndexPath) -> AnyCollectionItem?
+	) -> UICollectionView.SupplementaryRegistration<UICollectionReusableView> {
+		UICollectionView.SupplementaryRegistration<UICollectionReusableView>(
+			elementKind: elementKind
+		) { supplementaryView, _, indexPath in
+			guard let item = itemProvider(indexPath) else { return }
 			supplementaryView.subviews.forEach { $0.removeFromSuperview() }
-			
-			let environment = self.sections[indexPath.section].layout.viewEnvironment
-			let view = headerItem.makeView(environment: environment)
+			let view = item.makeView()
 			view.translatesAutoresizingMaskIntoConstraints = false
 			supplementaryView.addSubview(view)
-			
 			NSLayoutConstraint.activate([
 				view.topAnchor.constraint(equalTo: supplementaryView.topAnchor),
 				view.leadingAnchor.constraint(equalTo: supplementaryView.leadingAnchor),
 				view.trailingAnchor.constraint(equalTo: supplementaryView.trailingAnchor),
 				view.bottomAnchor.constraint(equalTo: supplementaryView.bottomAnchor)
 			])
-		}
-		
-		diffableDataSource.supplementaryViewProvider = { collectionView, elementKind, indexPath in
-			collectionView.dequeueConfiguredReusableSupplementary(
-				using: headerRegistration,
-				for: indexPath
-			)
 		}
 	}
 	
@@ -199,6 +248,25 @@ final class CollectionViewContainer: UICollectionView {
 		}
 		
 		diffableDataSource.apply(snapshot, animatingDifferences: animated)
+	}
+}
+
+// MARK: - Array Safe Subscript
+
+private extension Array {
+	subscript(safe index: Int) -> Element? {
+		indices.contains(index) ? self[index] : nil
+	}
+}
+
+// MARK: - UICollectionViewCompositionalLayoutConfiguration
+
+extension UICollectionViewCompositionalLayoutConfiguration {
+	
+	static var `default`: UICollectionViewCompositionalLayoutConfiguration {
+		let configuration = UICollectionViewCompositionalLayoutConfiguration()
+		configuration.interSectionSpacing = LayoutConstants.interGroupSpacing
+		return configuration
 	}
 }
 

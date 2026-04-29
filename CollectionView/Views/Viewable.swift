@@ -9,66 +9,60 @@ import UIKit
 
 // MARK: - Uneditable
 
-enum ViewEnvironment {
-	case plain
-	case module
-	case section
-	case undefined
+protocol Viewable {
+
+	associatedtype ViewType: UIView
+
+	@MainActor var preferredSize: CGSize { get }
+
+	@MainActor func makeView() -> ViewType
 }
 
-protocol Viewable {
+extension Viewable {
 	
-	associatedtype ViewType: UIView
-	
-	var preferredSize: CGSize { get }
-	
-	@MainActor func makeView() -> ViewType
-	
-	@MainActor func makeView(environment: ViewEnvironment) -> ViewType
+	@MainActor var preferredSize: CGSize { .init(width: UIView.noIntrinsicMetric, height: UIView.noIntrinsicMetric) }
 }
 
 protocol Updatable {
-	
+
 	func update(animated: Bool)
 }
 
 protocol ModelableView: UIView {
 
 	associatedtype Model
-	
+
 	var model: Model { get set }
-	
+
 	var updatable: Updatable? { get set }
-	
-	var viewEnvironment: ViewEnvironment { get set }
-	
-	init(_ model: Model, environment: ViewEnvironment)
+
+	init(_ model: Model)
 }
 
 // MARK: - Editable
 
 protocol CollectionItemable {
-	
+
 	associatedtype ViewType: Viewable & Identifiable
-	
+
 	func makeItem() -> CollectionItem<ViewType>
 }
 
 struct CollectionItem<ModelType: Viewable & Identifiable & Sendable>: Hashable, Sendable {
-	
+
 	let id: String
-	
+
 	let model: ModelType
-	
+
 	func hash(into hasher: inout Hasher) {
 		hasher.combine(model.id)
 	}
-	
+
 	static func == (lhs: CollectionItem<ModelType>, rhs: CollectionItem<ModelType>) -> Bool {
 		lhs.id == rhs.id
 	}
-	
-	func erased() -> AnyCollectionItem {
+
+	@MainActor func erased() -> AnyCollectionItem {
 		AnyCollectionItem(
 			id: id,
 			preferredSize: model.preferredSize,
@@ -80,13 +74,13 @@ struct CollectionItem<ModelType: Viewable & Identifiable & Sendable>: Hashable, 
 // MARK: - Type-Erased Collection Item
 
 struct AnyCollectionItem: Hashable, Sendable {
-	
+
 	let id: String
 	let preferredSize: CGSize
 	private let view: any Viewable & Sendable
 	let onSelect: (@Sendable () -> Void)?
 	let onWillDisplay: (@Sendable () -> Void)?
-	
+
 	init(
 		id: String,
 		preferredSize: CGSize,
@@ -100,15 +94,15 @@ struct AnyCollectionItem: Hashable, Sendable {
 		self.onSelect = onSelect
 		self.onWillDisplay = onWillDisplay
 	}
-	
-	@MainActor func makeView(environment: ViewEnvironment) -> UIView {
-		view.makeView(environment: environment)
+
+	@MainActor func makeView() -> UIView {
+		view.makeView()
 	}
-	
+
 	func hash(into hasher: inout Hasher) {
 		hasher.combine(id)
 	}
-	
+
 	static func == (lhs: AnyCollectionItem, rhs: AnyCollectionItem) -> Bool {
 		lhs.id == rhs.id
 	}
@@ -117,33 +111,19 @@ struct AnyCollectionItem: Hashable, Sendable {
 // MARK: - Collection Layout
 
 enum CollectionLayout {
-	/// Плоский список (UICollectionLayoutListConfiguration.Appearance.plain) → .plain
+	/// Плоский список (UICollectionLayoutListConfiguration.Appearance.plain)
 	case plain
-	/// Сгруппированный список с отступами (insetGrouped) → .module
+	/// Сгруппированный список с отступами (insetGrouped)
 	case insetGrouped
-	/// Сгруппированный список (grouped) → .section
+	/// Сгруппированный список (grouped)
 	case grouped
-	/// Боковая панель (sidebar) → .section
+	/// Боковая панель (sidebar)
 	case sidebar
-	/// Боковая панель плоская (sidebarPlain) → .plain
+	/// Боковая панель плоская (sidebarPlain)
 	case sidebarPlain
-	/// Кастомный лейаут с явным указанием ViewEnvironment
-	case custom(ViewEnvironment = .undefined, (NSCollectionLayoutEnvironment) -> NSCollectionLayoutSection)
-	
-	/// ViewEnvironment, соответствующий данному типу layout
-	var viewEnvironment: ViewEnvironment {
-		switch self {
-		case .plain, .sidebarPlain:
-			return .plain
-		case .insetGrouped:
-			return .module
-		case .grouped, .sidebar:
-			return .section
-		case .custom(let environment, _):
-			return environment
-		}
-	}
-	
+	/// Кастомный лейаут
+	case custom((NSCollectionLayoutEnvironment) -> NSCollectionLayoutSection)
+
 	@MainActor func makeLayoutSection(environment: NSCollectionLayoutEnvironment) -> NSCollectionLayoutSection {
 		switch self {
 		case .plain:
@@ -161,7 +141,7 @@ enum CollectionLayout {
 		case .sidebarPlain:
 			let config = UICollectionLayoutListConfiguration(appearance: .sidebarPlain)
 			return .list(using: config, layoutEnvironment: environment)
-		case .custom(_, let provider):
+		case .custom(let provider):
 			return provider(environment)
 		}
 	}
@@ -170,11 +150,11 @@ enum CollectionLayout {
 // MARK: - Collection Decoration
 
 struct CollectionDecoration {
-	
+
 	let elementKind: String
 	let viewClass: UICollectionReusableView.Type
 	let contentInsets: NSDirectionalEdgeInsets
-	
+
 	init(
 		elementKind: String,
 		viewClass: UICollectionReusableView.Type,
@@ -184,7 +164,7 @@ struct CollectionDecoration {
 		self.viewClass = viewClass
 		self.contentInsets = contentInsets
 	}
-	
+
 	@MainActor func makeDecorationItem() -> NSCollectionLayoutDecorationItem {
 		let item = NSCollectionLayoutDecorationItem.background(elementKind: elementKind)
 		item.contentInsets = contentInsets
@@ -195,24 +175,27 @@ struct CollectionDecoration {
 // MARK: - Collection Section
 
 struct CollectionSection {
-	
+
 	let id: String
 	let layout: CollectionLayout
 	let items: [AnyCollectionItem]
 	let decorations: [CollectionDecoration]
 	let header: AnyCollectionItem?
-	
+	let footer: AnyCollectionItem?
+
 	init(
 		id: String,
 		layout: CollectionLayout,
 		items: [AnyCollectionItem],
 		decorations: [CollectionDecoration] = [],
-		header: AnyCollectionItem? = nil
+		header: AnyCollectionItem? = nil,
+		footer: AnyCollectionItem? = nil
 	) {
 		self.id = id
 		self.layout = layout
 		self.items = items
 		self.decorations = decorations
 		self.header = header
+		self.footer = footer
 	}
 }
