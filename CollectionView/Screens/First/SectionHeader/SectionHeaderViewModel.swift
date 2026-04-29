@@ -17,10 +17,6 @@ struct SectionHeaderViewModel: Viewable, Identifiable, Sendable {
 	}
 	
 	func makeView() -> SectionHeaderView {
-		SectionHeaderView(self, environment: .plain)
-	}
-	
-	func makeView(environment: ViewEnvironment) -> SectionHeaderView {
-		SectionHeaderView(self, environment: environment)
+		SectionHeaderView(self)
 	}
 }

@@ -33,11 +33,11 @@ final class FirstViewController: UIViewController {
 	private func setupCollection() {
 		let inset = LayoutConstants.sectionInset
 		
-		collectionContainer = CollectionViewBuilder.build {
+		collectionContainer = CollectionViewBuilder.make {
 			// Модуль 1: "Выгодные предложения" + промо-баннеры
 			CollectionSection(
 				id: "promo_module",
-				layout: .custom(.module) { environment in
+				layout: .custom { environment in
 					let bannerSize = NSCollectionLayoutSize(
 						widthDimension: .absolute(260),
 						heightDimension: .absolute(160)
@@ -110,18 +110,14 @@ final class FirstViewController: UIViewController {
 			// Модуль 2: Action-ячейки
 			CollectionSection(
 				id: "actions_module",
-				layout: .custom(.module) { environment in
+				layout: .custom { environment in
 					let itemSize = NSCollectionLayoutSize(
 						widthDimension: .fractionalWidth(1.0),
-						heightDimension: .absolute(56)
+						heightDimension: .estimated(56)
 					)
 					let item = NSCollectionLayoutItem(layoutSize: itemSize)
-					let groupSize = NSCollectionLayoutSize(
-						widthDimension: .fractionalWidth(1.0),
-						heightDimension: .absolute(56)
-					)
 					let group = NSCollectionLayoutGroup.vertical(
-						layoutSize: groupSize,
+						layoutSize: itemSize,
 						subitems: [item]
 					)
 					let section = NSCollectionLayoutSection(group: group)
@@ -157,15 +153,28 @@ final class FirstViewController: UIViewController {
 						iconBackgroundColor: .systemOrange
 					)
 				).erased()
+				CollectionItem(
+					id: "action_bonus",
+					model: ActionCellViewModel(
+						id: "action_bonus",
+						title: "Бонусная программа",
+						subtitle: "Накапливайте баллы за каждую покупку и обменивайте их на скидки в следующем заказе",
+						iconName: "star.fill",
+						iconBackgroundColor: .systemPurple
+					)
+				).erased()
 			}
 			
 			// Модуль 3: "Доставка продуктов" + товарные баннеры
 			CollectionSection(
 				id: "delivery_module",
-				layout: .custom(.module) { environment in
+				layout: .custom { environment in
+					let containerWidth = environment.container.effectiveContentSize.width
+					let bannerWidth = containerWidth * 0.75
+					let bannerHeight = bannerWidth * 0.6
 					let bannerSize = NSCollectionLayoutSize(
-						widthDimension: .absolute(260),
-						heightDimension: .absolute(160)
+						widthDimension: .fractionalWidth(1),
+						heightDimension: .absolute(bannerHeight)
 					)
 					let bannerItem = NSCollectionLayoutItem(layoutSize: bannerSize)
 					let bannerGroup = NSCollectionLayoutGroup.horizontal(
